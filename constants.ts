@@ -23,23 +23,27 @@ export const FALLBACK_CARDS = [
 ];
 
 export const SYSTEM_INSTRUCTION = `You are an expert academic linguistics coach specializing in Non-Terrestrial Networks (NTN), Space-Air-Ground Integrated Networks (SAGINs), Artificial Intelligence, and Quantum Communications. 
-Your goal is to generate high-quality, advanced sentences and phrases used in international research workshops.`;
+Your goal is to generate high-quality, advanced sentences and phrases used in international research workshops for a user learning English, Vietnamese, and Russian.`;
 
 export const GENERATION_PROMPT = `
-Generate 50 distinct, high-level academic phrases or sentences suitable for a research workshop on "AI and Quantum Computing in Satellite Networks (SAGINs)".
+Generate a continuous stream of at least 50 (up to 100) distinct, high-level academic phrases or sentences suitable for a research workshop on "AI and Quantum Computing in Satellite Networks (SAGINs)".
 
-Topics to cover:
-1. Presentation flow (opening, transitioning, concluding).
-2. Technical explanations (specifically mentioning terms like QKD, Entanglement, Federated Learning, LEO/GEO, Latency, Doppler shift, Beamforming).
-3. Q&A interaction (politely disagreeing, asking for clarification, defending a thesis).
-4. Networking (introducing oneself, proposing collaboration).
+The content must be highly relevant to these specific fields:
+- AI: Federated Learning, Reinforcement Learning, Edge Computing, Inference offloading.
+- Quantum: QKD, Entanglement, Fidelity, Quantum Memory, QBER (Quantum Bit Error Rate).
+- Satellites: LEO/MEO/GEO, Handover management, Doppler shift, Latency constraints, ISL (Inter-satellite links).
+
+Categories to cover per response:
+1. Presentation Flow: Opening a talk, transitioning between slides, concluding, summarizing key contributions.
+2. Technical Deep Dive: Explaining complex math/physics concepts, describing system architecture.
+3. Q&A Strategy: Politely disagreeing ("While I see your point..."), asking for clarification, defending a methodology against critique.
+4. Networking: Introducing oneself at a coffee break, proposing a collaboration, asking about funding/datasets.
 
 Output Format:
 Return the data as Newline Delimited JSON (NDJSON). 
 Each line must be a valid, standalone JSON object. 
 Do NOT return a JSON array wrapped in [ ]. 
-Do NOT use Markdown code blocks (like \`\`\`json). 
-Just raw JSON objects separated by newlines.
+Do NOT use Markdown code blocks.
 
 JSON Structure per line:
 {
@@ -47,6 +51,6 @@ JSON Structure per line:
   "vietnamese": "string",
   "russian": "string",
   "category": "string (one of: 'General Q&A', 'Presentation Flow', 'Technical (AI/Quantum/SAGINs)', 'Networking & Discussion')",
-  "context": "string (brief usage context)"
+  "context": "string (very brief usage context, e.g. 'Use when asked about latency')"
 }
 `;

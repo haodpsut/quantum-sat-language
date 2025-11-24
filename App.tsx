@@ -1,22 +1,22 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import { streamFlashcards } from './services/geminiService';
 import { FlashcardData } from './types';
 import { FALLBACK_CARDS, APP_TITLE, APP_SUBTITLE } from './constants';
 import Flashcard from './components/Flashcard';
 import Controls from './components/Controls';
 import Loader from './components/Loader';
-import { Layers, Wifi, Cpu, Radio } from 'lucide-react';
+import WelcomeScreen from './components/WelcomeScreen';
+import { Layers, Wifi, Cpu, Radio, Sparkles } from 'lucide-react';
 
 const App: React.FC = () => {
+  const [hasStarted, setHasStarted] = useState(false);
   const [cards, setCards] = useState<FlashcardData[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [isLoading, setIsLoading] = useState(true); // Initial wait for first card
   const [isGenerating, setIsGenerating] = useState(false); // Background streaming status
   const [isFlipped, setIsFlipped] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const loadDeck = useCallback(async () => {
-    setIsLoading(true);
     setIsGenerating(true);
     setError(null);
     setCards([]); // Clear current deck
@@ -25,40 +25,33 @@ const App: React.FC = () => {
 
     try {
       if (!process.env.API_KEY) {
-        setError("API Key missing. Using offline data.");
-        setCards(FALLBACK_CARDS);
-        setIsLoading(false);
-        setIsGenerating(false);
+        // Fallback for demo without key
+        setTimeout(() => {
+            setCards(FALLBACK_CARDS);
+            setIsGenerating(false);
+        }, 1500);
         return;
       }
 
-      let hasReceivedFirst = false;
-
       await streamFlashcards((newCard) => {
         setCards(prev => [...prev, newCard]);
-        if (!hasReceivedFirst) {
-          hasReceivedFirst = true;
-          setIsLoading(false); // Unblock UI as soon as content arrives
-        }
       });
 
     } catch (err) {
       console.error(err);
       if (cards.length === 0) {
-        setError("Failed to stream content. Using offline mode.");
+        setError("Connection interrupted. Switching to offline data.");
         setCards(FALLBACK_CARDS);
       }
     } finally {
-      setIsLoading(false);
       setIsGenerating(false);
     }
   }, [cards.length]);
 
-  // Initial Load
-  useEffect(() => {
+  const handleStart = () => {
+    setHasStarted(true);
     loadDeck();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  };
 
   // Handlers
   const handleNext = () => {
@@ -94,6 +87,10 @@ const App: React.FC = () => {
     }, 300);
   };
 
+  const handleReload = () => {
+    loadDeck();
+  };
+
   return (
     <div className="min-h-screen bg-slate-900 text-slate-100 flex flex-col font-sans overflow-hidden relative">
       
@@ -107,7 +104,7 @@ const App: React.FC = () => {
       {/* Header */}
       <header className="relative z-10 w-full px-6 py-6 border-b border-slate-800 bg-slate-900/50 backdrop-blur-md">
         <div className="max-w-5xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 cursor-pointer" onClick={() => setHasStarted(false)}>
             <div className="p-2 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-lg shadow-lg shadow-cyan-500/20">
               <Wifi className="text-white w-6 h-6" />
             </div>
@@ -121,55 +118,67 @@ const App: React.FC = () => {
             </div>
           </div>
           
-          <div className="flex items-center gap-4 text-xs font-mono text-slate-500">
-            <div className="flex items-center gap-1.5">
-              {isGenerating ? (
-                 <>
-                   <div className="w-2 h-2 rounded-full bg-cyan-400 animate-ping"></div>
-                   <span className="text-cyan-400">STREAMING...</span>
-                 </>
-              ) : (
-                <>
-                  <div className={`w-2 h-2 rounded-full ${error ? 'bg-red-500' : 'bg-emerald-400'}`}></div>
-                  {error ? 'OFFLINE' : 'READY'}
-                </>
-              )}
+          {hasStarted && (
+            <div className="flex items-center gap-4 text-xs font-mono">
+                {isGenerating ? (
+                   <div className="flex items-center gap-2 px-3 py-1 bg-cyan-900/30 border border-cyan-800/50 rounded-full">
+                     <div className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse"></div>
+                     <span className="text-cyan-300">LIVE FEED: {cards.length}</span>
+                   </div>
+                ) : (
+                  <div className="flex items-center gap-2 px-3 py-1 bg-emerald-900/30 border border-emerald-800/50 rounded-full">
+                    <div className="w-1.5 h-1.5 rounded-full bg-emerald-400"></div>
+                    <span className="text-emerald-300">COMPLETE ({cards.length})</span>
+                  </div>
+                )}
             </div>
-          </div>
+          )}
         </div>
       </header>
 
       {/* Main Content */}
-      <main className="relative z-10 flex-grow flex flex-col items-center justify-center p-4 sm:p-6">
+      <main className="relative z-10 flex-grow flex flex-col items-center justify-center p-4 sm:p-6 w-full">
         <div className="w-full max-w-5xl mx-auto">
           
           {error && cards.length > 0 && (
              <div className="mb-4 mx-auto max-w-2xl bg-amber-900/20 border border-amber-800 text-amber-200 px-4 py-2 rounded-lg text-xs text-center">
-                Note: {error}
+                {error}
              </div>
           )}
 
-          {isLoading ? (
-            <Loader />
+          {!hasStarted ? (
+            <WelcomeScreen onStart={handleStart} />
           ) : (
-            cards.length > 0 && (
-              <div className="animate-in fade-in slide-in-from-bottom-4 duration-700">
-                <Flashcard 
-                  data={cards[currentIndex]} 
-                  isFlipped={isFlipped} 
-                  onFlip={handleFlip} 
-                />
-                <Controls 
-                  onNext={handleNext}
-                  onPrev={handlePrev}
-                  onShuffle={handleShuffle}
-                  onReload={loadDeck}
-                  currentIndex={currentIndex}
-                  total={cards.length}
-                  isStreaming={isGenerating}
-                />
-              </div>
-            )
+            <>
+              {cards.length === 0 ? (
+                <Loader />
+              ) : (
+                <div className="animate-in fade-in slide-in-from-bottom-4 duration-700">
+                  <Flashcard 
+                    data={cards[currentIndex]} 
+                    isFlipped={isFlipped} 
+                    onFlip={handleFlip} 
+                  />
+                  <Controls 
+                    onNext={handleNext}
+                    onPrev={handlePrev}
+                    onShuffle={handleShuffle}
+                    onReload={handleReload}
+                    currentIndex={currentIndex}
+                    total={cards.length}
+                    isStreaming={isGenerating}
+                  />
+                  {isGenerating && (
+                    <div className="mt-4 text-center">
+                      <p className="text-xs text-slate-500 animate-pulse flex items-center justify-center gap-2">
+                         <Sparkles size={12} className="text-cyan-400"/>
+                         AI is generating more scenarios ({cards.length})...
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
+            </>
           )}
         </div>
       </main>
@@ -179,7 +188,7 @@ const App: React.FC = () => {
         <div className="flex justify-center items-center gap-6 mb-2">
            <div className="flex items-center gap-2"><Layers size={14}/> Satellite NTN</div>
            <div className="flex items-center gap-2"><Cpu size={14}/> AI & Quantum</div>
-           {isGenerating && <div className="flex items-center gap-2 animate-pulse text-cyan-500"><Radio size={14}/> Receiving Data...</div>}
+           {isGenerating && hasStarted && <div className="flex items-center gap-2 animate-pulse text-cyan-500"><Radio size={14}/> Receiving Data...</div>}
         </div>
         <p>© {new Date().getFullYear()} Research Communications Assistant</p>
       </footer>
