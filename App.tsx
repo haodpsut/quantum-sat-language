@@ -1,18 +1,25 @@
 import React, { useState, useCallback } from 'react';
 import { streamFlashcards } from './services/geminiService';
 import { FlashcardData } from './types';
-import { FALLBACK_CARDS, APP_TITLE, APP_SUBTITLE } from './constants';
+import { 
+  FALLBACK_CARDS, 
+  APP_TITLE, 
+  APP_SUBTITLE, 
+  PROMPT_FLOW_NETWORKING, 
+  PROMPT_TECH_AI_SAT, 
+  PROMPT_TECH_QUANTUM 
+} from './constants';
 import Flashcard from './components/Flashcard';
 import Controls from './components/Controls';
 import Loader from './components/Loader';
 import WelcomeScreen from './components/WelcomeScreen';
-import { Layers, Wifi, Cpu, Radio, Sparkles } from 'lucide-react';
+import { Layers, Wifi, Cpu, Radio, Sparkles, Zap } from 'lucide-react';
 
 const App: React.FC = () => {
   const [hasStarted, setHasStarted] = useState(false);
   const [cards, setCards] = useState<FlashcardData[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [isGenerating, setIsGenerating] = useState(false); // Background streaming status
+  const [isGenerating, setIsGenerating] = useState(false); 
   const [isFlipped, setIsFlipped] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -33,9 +40,17 @@ const App: React.FC = () => {
         return;
       }
 
-      await streamFlashcards((newCard) => {
-        setCards(prev => [...prev, newCard]);
-      });
+      // Parallel streaming for maximum speed
+      // We fire 3 distinct requests simultaneously covering different topics
+      const streamPromises = [
+        streamFlashcards(PROMPT_FLOW_NETWORKING, (newCard) => setCards(prev => [...prev, newCard])),
+        streamFlashcards(PROMPT_TECH_AI_SAT, (newCard) => setCards(prev => [...prev, newCard])),
+        streamFlashcards(PROMPT_TECH_QUANTUM, (newCard) => setCards(prev => [...prev, newCard]))
+      ];
+
+      // We await all to know when "loading" is fully done, 
+      // but the UI updates via the callbacks inside streamFlashcards
+      await Promise.allSettled(streamPromises);
 
     } catch (err) {
       console.error(err);
@@ -121,14 +136,14 @@ const App: React.FC = () => {
           {hasStarted && (
             <div className="flex items-center gap-4 text-xs font-mono">
                 {isGenerating ? (
-                   <div className="flex items-center gap-2 px-3 py-1 bg-cyan-900/30 border border-cyan-800/50 rounded-full">
-                     <div className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse"></div>
-                     <span className="text-cyan-300">LIVE FEED: {cards.length}</span>
+                   <div className="flex items-center gap-2 px-3 py-1 bg-cyan-900/30 border border-cyan-800/50 rounded-full animate-pulse">
+                     <Zap size={12} className="text-cyan-400 fill-current" />
+                     <span className="text-cyan-300">TURBO LOADING: {cards.length}</span>
                    </div>
                 ) : (
                   <div className="flex items-center gap-2 px-3 py-1 bg-emerald-900/30 border border-emerald-800/50 rounded-full">
                     <div className="w-1.5 h-1.5 rounded-full bg-emerald-400"></div>
-                    <span className="text-emerald-300">COMPLETE ({cards.length})</span>
+                    <span className="text-emerald-300">READY ({cards.length})</span>
                   </div>
                 )}
             </div>
@@ -172,7 +187,7 @@ const App: React.FC = () => {
                     <div className="mt-4 text-center">
                       <p className="text-xs text-slate-500 animate-pulse flex items-center justify-center gap-2">
                          <Sparkles size={12} className="text-cyan-400"/>
-                         AI is generating more scenarios ({cards.length})...
+                         Accelerating generation (3x Parallel Streams)...
                       </p>
                     </div>
                   )}
@@ -188,7 +203,7 @@ const App: React.FC = () => {
         <div className="flex justify-center items-center gap-6 mb-2">
            <div className="flex items-center gap-2"><Layers size={14}/> Satellite NTN</div>
            <div className="flex items-center gap-2"><Cpu size={14}/> AI & Quantum</div>
-           {isGenerating && hasStarted && <div className="flex items-center gap-2 animate-pulse text-cyan-500"><Radio size={14}/> Receiving Data...</div>}
+           {isGenerating && hasStarted && <div className="flex items-center gap-2 animate-pulse text-cyan-500"><Radio size={14}/> Turbo Mode Active</div>}
         </div>
         <p>© {new Date().getFullYear()} Research Communications Assistant</p>
       </footer>

@@ -1,6 +1,6 @@
 import { GoogleGenAI } from "@google/genai";
 import { FlashcardData, Category } from "../types";
-import { GENERATION_PROMPT, SYSTEM_INSTRUCTION } from "../constants";
+import { SYSTEM_INSTRUCTION } from "../constants";
 
 // Helper to safely map arbitrary string to Category enum
 const mapCategory = (cat: string): Category => {
@@ -12,6 +12,7 @@ const mapCategory = (cat: string): Category => {
 };
 
 export const streamFlashcards = async (
+  prompt: string,
   onCardReceived: (card: FlashcardData) => void
 ): Promise<void> => {
   const apiKey = process.env.API_KEY;
@@ -24,14 +25,16 @@ export const streamFlashcards = async (
   try {
     const responseStream = await ai.models.generateContentStream({
       model: "gemini-2.5-flash",
-      contents: GENERATION_PROMPT,
+      contents: prompt,
       config: {
         systemInstruction: SYSTEM_INSTRUCTION,
-        // NDJSON does not require 'application/json' mimeType, strictly text processing
+        temperature: 0.8, // Slightly higher creativity for diversity
       },
     });
 
     let buffer = "";
+    // Random prefix to prevent ID collision in parallel streams
+    const streamId = Math.random().toString(36).substring(2, 7);
     let cardIndex = 0;
 
     for await (const chunk of responseStream) {
@@ -57,7 +60,7 @@ export const streamFlashcards = async (
             
             if (item.english && item.vietnamese) {
                const card: FlashcardData = {
-                id: `stream-${Date.now()}-${cardIndex++}`,
+                id: `stream-${streamId}-${Date.now()}-${cardIndex++}`,
                 english: item.english,
                 vietnamese: item.vietnamese,
                 russian: item.russian,
@@ -81,7 +84,7 @@ export const streamFlashcards = async (
               const item = JSON.parse(cleanLine);
                if (item.english) {
                  const card: FlashcardData = {
-                  id: `stream-${Date.now()}-${cardIndex++}`,
+                  id: `stream-${streamId}-${Date.now()}-${cardIndex++}`,
                   english: item.english,
                   vietnamese: item.vietnamese,
                   russian: item.russian,
