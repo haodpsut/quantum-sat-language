@@ -1,0 +1,5 @@
+{
+  "name": "QuantumSat Lingua",
+  "description": "A specialized flashcard application for mastering academic communication in AI and Quantum Satellite Network (SAGINs/NTN) workshops. Features trilingual support (English, Vietnamese, Russian).",
+  "requestFramePermissions": []
+}

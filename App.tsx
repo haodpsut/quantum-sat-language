@@ -1,0 +1,191 @@
+import React, { useState, useEffect, useCallback } from 'react';
+import { streamFlashcards } from './services/geminiService';
+import { FlashcardData } from './types';
+import { FALLBACK_CARDS, APP_TITLE, APP_SUBTITLE } from './constants';
+import Flashcard from './components/Flashcard';
+import Controls from './components/Controls';
+import Loader from './components/Loader';
+import { Layers, Wifi, Cpu, Radio } from 'lucide-react';
+
+const App: React.FC = () => {
+  const [cards, setCards] = useState<FlashcardData[]>([]);
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [isLoading, setIsLoading] = useState(true); // Initial wait for first card
+  const [isGenerating, setIsGenerating] = useState(false); // Background streaming status
+  const [isFlipped, setIsFlipped] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const loadDeck = useCallback(async () => {
+    setIsLoading(true);
+    setIsGenerating(true);
+    setError(null);
+    setCards([]); // Clear current deck
+    setCurrentIndex(0);
+    setIsFlipped(false);
+
+    try {
+      if (!process.env.API_KEY) {
+        setError("API Key missing. Using offline data.");
+        setCards(FALLBACK_CARDS);
+        setIsLoading(false);
+        setIsGenerating(false);
+        return;
+      }
+
+      let hasReceivedFirst = false;
+
+      await streamFlashcards((newCard) => {
+        setCards(prev => [...prev, newCard]);
+        if (!hasReceivedFirst) {
+          hasReceivedFirst = true;
+          setIsLoading(false); // Unblock UI as soon as content arrives
+        }
+      });
+
+    } catch (err) {
+      console.error(err);
+      if (cards.length === 0) {
+        setError("Failed to stream content. Using offline mode.");
+        setCards(FALLBACK_CARDS);
+      }
+    } finally {
+      setIsLoading(false);
+      setIsGenerating(false);
+    }
+  }, [cards.length]);
+
+  // Initial Load
+  useEffect(() => {
+    loadDeck();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Handlers
+  const handleNext = () => {
+    if (currentIndex < cards.length - 1) {
+      setIsFlipped(false);
+      setTimeout(() => setCurrentIndex(prev => prev + 1), 200);
+    }
+  };
+
+  const handlePrev = () => {
+    if (currentIndex > 0) {
+      setIsFlipped(false);
+      setTimeout(() => setCurrentIndex(prev => prev - 1), 200);
+    }
+  };
+
+  const handleFlip = () => {
+    setIsFlipped(prev => !prev);
+  };
+
+  const handleShuffle = () => {
+    setIsFlipped(false);
+    setTimeout(() => {
+      setCards(prev => {
+        const shuffled = [...prev];
+        for (let i = shuffled.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+        }
+        return shuffled;
+      });
+      setCurrentIndex(0);
+    }, 300);
+  };
+
+  return (
+    <div className="min-h-screen bg-slate-900 text-slate-100 flex flex-col font-sans overflow-hidden relative">
+      
+      {/* Background Decorations */}
+      <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none z-0">
+         <div className="absolute -top-20 -left-20 w-96 h-96 bg-indigo-600/10 rounded-full blur-3xl"></div>
+         <div className="absolute top-1/2 right-0 w-[500px] h-[500px] bg-cyan-600/5 rounded-full blur-3xl"></div>
+         <div className="absolute bottom-0 left-1/4 w-80 h-80 bg-purple-600/10 rounded-full blur-3xl"></div>
+      </div>
+
+      {/* Header */}
+      <header className="relative z-10 w-full px-6 py-6 border-b border-slate-800 bg-slate-900/50 backdrop-blur-md">
+        <div className="max-w-5xl mx-auto flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-lg shadow-lg shadow-cyan-500/20">
+              <Wifi className="text-white w-6 h-6" />
+            </div>
+            <div>
+              <h1 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-white to-slate-400">
+                {APP_TITLE}
+              </h1>
+              <p className="text-xs text-slate-500 font-medium tracking-wide hidden sm:block">
+                {APP_SUBTITLE}
+              </p>
+            </div>
+          </div>
+          
+          <div className="flex items-center gap-4 text-xs font-mono text-slate-500">
+            <div className="flex items-center gap-1.5">
+              {isGenerating ? (
+                 <>
+                   <div className="w-2 h-2 rounded-full bg-cyan-400 animate-ping"></div>
+                   <span className="text-cyan-400">STREAMING...</span>
+                 </>
+              ) : (
+                <>
+                  <div className={`w-2 h-2 rounded-full ${error ? 'bg-red-500' : 'bg-emerald-400'}`}></div>
+                  {error ? 'OFFLINE' : 'READY'}
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      </header>
+
+      {/* Main Content */}
+      <main className="relative z-10 flex-grow flex flex-col items-center justify-center p-4 sm:p-6">
+        <div className="w-full max-w-5xl mx-auto">
+          
+          {error && cards.length > 0 && (
+             <div className="mb-4 mx-auto max-w-2xl bg-amber-900/20 border border-amber-800 text-amber-200 px-4 py-2 rounded-lg text-xs text-center">
+                Note: {error}
+             </div>
+          )}
+
+          {isLoading ? (
+            <Loader />
+          ) : (
+            cards.length > 0 && (
+              <div className="animate-in fade-in slide-in-from-bottom-4 duration-700">
+                <Flashcard 
+                  data={cards[currentIndex]} 
+                  isFlipped={isFlipped} 
+                  onFlip={handleFlip} 
+                />
+                <Controls 
+                  onNext={handleNext}
+                  onPrev={handlePrev}
+                  onShuffle={handleShuffle}
+                  onReload={loadDeck}
+                  currentIndex={currentIndex}
+                  total={cards.length}
+                  isStreaming={isGenerating}
+                />
+              </div>
+            )
+          )}
+        </div>
+      </main>
+
+      {/* Footer */}
+      <footer className="relative z-10 py-6 text-center border-t border-slate-800 text-slate-600 text-sm">
+        <div className="flex justify-center items-center gap-6 mb-2">
+           <div className="flex items-center gap-2"><Layers size={14}/> Satellite NTN</div>
+           <div className="flex items-center gap-2"><Cpu size={14}/> AI & Quantum</div>
+           {isGenerating && <div className="flex items-center gap-2 animate-pulse text-cyan-500"><Radio size={14}/> Receiving Data...</div>}
+        </div>
+        <p>© {new Date().getFullYear()} Research Communications Assistant</p>
+      </footer>
+
+    </div>
+  );
+};
+
+export default App;
